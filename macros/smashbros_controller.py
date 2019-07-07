@@ -15,7 +15,7 @@ import bridge
 
 # NOTE: SCREEN START IN 'GAMES & MORE' then goes to training, and the cursor is on the practice stage.
 class ControllerManager:
-    def __init__(self):
+    def __init__(self, record_filename=None):
         self.input_stack = InputStack()
         self.delta = 0
         self.prev_msg_stamp = None
@@ -24,37 +24,30 @@ class ControllerManager:
                                  stopbits=serial.STOPBITS_ONE, timeout=None)
         self.thread = None
         self.recording_stream = None
-        self.recording_lock = threading.Lock()
-        self.state_lock = threading.Lock()
-        self.state = None
+        self.running_lock = threading.Lock()
+        if record_filename:
+            self.with_recording(record_filename)
 
     def start(self):
         if self.started:
             print('[!] Asynchroneous video capturing has already been started.')
             return None
         self.started = True
-        self.thread = threading.Thread(target=self.update_loop, args=())
+        self.thread = threading.Thread(daemon=True, target=self.update_loop, args=())
         self.thread.start()
 
     def stop(self):
-        self.started = False
+        with self.running_lock:
+            self.started = False
         self.thread.join()
-        with self.recording_lock:
-            if self.recording_stream:
-                self.recording_stream.close()
-
-    def read(self):
-        with self.state_lock:
-            return self.state
-
-    def start_recording(self, filename):
-        with self.recording_lock:
-            self.recording_stream = open(filename, 'wb')
-
-    def stop_recording(self):
-        with self.recording_lock:
+        if self.recording_stream:
             self.recording_stream.close()
-            self.recording_stream = None
+
+    def with_playback(self, filename):
+        self.input_stack.push(play_file(filename))
+
+    def with_recording(self, filename):
+        self.recording_stream = open(filename + '.map', 'wb')
 
     def with_controller(self, controller_idx='0'):
         self.input_stack.push(controller_states(controller_idx))
@@ -62,33 +55,35 @@ class ControllerManager:
     def update_loop(self):
         last_time = dt.datetime.now().timestamp()
         while True:
+            with self.running_lock:
+                if not self.started:
+                    break
             curr_time = dt.datetime.now().timestamp()
-            self.update(last_time - curr_time)
+            try:
+                self.update(last_time - curr_time)
+            except StopIteration:
+                return
             last_time = curr_time
             time.sleep(0.005)  # sleep 5 ms to calm down
 
     def update(self, delta):
         self.delta += delta
-        try:
-            sdl2.ext.get_events()
-            msg_stamp = next(self.input_stack)
-            # no message stamp is a sign to reset the playback clock
-            if msg_stamp is None:
-                self.delta = 0
-            # This this input has aleady been entered, then don't spam the stack
-            if self.prev_msg_stamp and msg_stamp.message == self.prev_msg_stamp.message:
-                return
-            # Wait for the correct amount of time to pass before performing an input
-            if msg_stamp.delta < self.delta:
-                return
-            self.ser.write(msg_stamp.formatted_message())
-            # if recording, now would be a good time to write
-            with self.recording_lock:
-                if self.recording_stream:
-                    self.recording_stream.write(msg_stamp.serialize() + b'\n')
-            self.prev_msg_stamp = msg_stamp
-        except StopIteration:
+        sdl2.ext.get_events()
+        msg_stamp = next(self.input_stack)
+        # no message stamp is a sign to reset the playback clock
+        if msg_stamp is None:
+            self.delta = 0
+        # This this input has aleady been entered, then don't spam the stack
+        if self.prev_msg_stamp and msg_stamp.message == self.prev_msg_stamp.message:
             return
+        # Wait for the correct amount of time to pass before performing an input
+        if msg_stamp.delta < self.delta:
+            return
+        self.ser.write(msg_stamp.formatted_message())
+        # if recording, now would be a good time to write
+        if self.recording_stream:
+            self.recording_stream.write(msg_stamp.serialize() + b'\n')
+        self.prev_msg_stamp = msg_stamp
 
         while True:
             # wait for the arduino to request another state.

@@ -1,6 +1,6 @@
 import datetime as dt
 from smashbros_controller import ControllerManager
-from screen_manager import ScreenManager
+from screen_manager import start_screencap, overlay
 import constants
 import sys
 import bridge
@@ -86,22 +86,36 @@ class BackException(Exception):
 
 
 def record(character, move):
-    start = dt.datetime.now().timestamp()
-    screen = ScreenManager()
-    controller = ControllerManager()
-    screen.start()
+    filename = f'/home/awkii/{character}/{move}'
+    controller = ControllerManager(filename)
+    print('starting controller')
     controller.start()
-    while True:
-        screen.update('ayy')
-    # controller = ControllerManager()
+    print('starting screencap')
+
+    def should_kill_callback():
+        return not controller.thread.isAlive()
+    start_screencap(filename, should_kill_callback)
+    print('joining threads')
+    controller.stop()
 
 
 def playback(character, move):
-    pass
+    filename = f'/home/awkii/{character}/{move}'
+    controller = ControllerManager()
+    controller.with_playback(filename)
+    controller.start()
+    overlay('march_1.avi', 'march_2.avi')
+
+    def should_kill_callback():
+        return not controller.thread.isAlive()
+    start_screencap(filename, should_kill_callback)
+    print('joining threads')
+    controller.stop()
 
 
 def main():
-    record('fox', 'utilt')
+    playback('test', 'utilt')
+    # record('fox', 'utilt')
     # characters = constants.get_characters()
     # for idx, c in enumerate(characters):
     #     print(f'{idx}: {c}')
