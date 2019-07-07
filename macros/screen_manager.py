@@ -3,9 +3,9 @@ import threading
 
 
 class ScreenManager:
-    def __init__(self):
+    def __init__(self, width=None, height=None, fps=None):
         # Create a VideoCapture object
-        self.cap = VideoCaptureAsync()
+        self.cap = VideoCaptureAsync(width=width, height=height, fps=fps)
         self.out = None
 
     def start(self):
@@ -37,25 +37,30 @@ class ScreenManager:
         )
         # Display the resulting frame
         cv2.imshow('frame', frame)
-        cv2.waitKey(1) & 0xFF
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            return
 
     def record(self, filename):
         # Define the codec and create VideoWriter object.The output is stored in 'outpy.avi' file.
-        self.out = cv2.VideoWriter(
-            f'{filename}.mp4',
-            cv2.VideoWriter_fourcc('m', 'p', '4', 'v'),
-            10,
-            (self.cap.get(cv2.CAP_PROP_FRAME_WIDTH), cv2.CAP_PROP_FRAME_HEIGH)
-        )
-
+        # self.out = cv2.VideoWriter(
+        #     f'{filename}.mp4',
+        #     apiPreference=cv2.CAP_FFMPEG,
+        #     fourcc=cv2.VideoWriter_fourcc(*'mp4v'),
+        #     fps=int(self.cap.get(cv2.CAP_PROP_FPS)),
+        #     frameSize=(int(self.cap.get(cv2.CAP_PROP_FRAME_WIDTH)), int(cv2.CAP_PROP_FRAME_HEIGHT))
+        # )
+        self.out = cv2.VideoWriter('/home/awkii/Documents/super-smash-bros/macros/output.avi', cv2.VideoWriter_fourcc(*'MJPG'), 30,
+                        (640, 480))
 
 class VideoCaptureAsync:
-    def __init__(self, src=0, width=None, height=None):
+    def __init__(self, src=0, fps=None, width=None, height=None):
         self.src = src
         self.cap = cv2.VideoCapture(self.src)
         if width and height:
             self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
             self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
+        if fps:
+            self.cap.set(cv2.CAP_PROP_FPS, fps)
         self.grabbed, self.frame = self.cap.read()
         self.started = False
         self.read_lock = threading.Lock()

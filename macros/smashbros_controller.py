@@ -56,6 +56,9 @@ class ControllerManager:
             self.recording_stream.close()
             self.recording_stream = None
 
+    def with_controller(self, controller_idx='0'):
+        self.input_stack.push(controller_states(controller_idx))
+
     def update_loop(self):
         last_time = dt.datetime.now().timestamp()
         while True:
