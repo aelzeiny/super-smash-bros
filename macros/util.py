@@ -1,3 +1,8 @@
+import os
+import subprocess as sp
+DEVNULL = open(os.devnull, 'wb')
+
+
 def move_list():
     return [
         'fair', 'bair', 'dair', 'uair', 'nair',
@@ -91,3 +96,35 @@ def get_characters():
         "ISABELLE",
         "INCINEROAR"
     ]
+
+
+def subprocess_call(cmd, logger='bar', errorprint=True):
+    """ Executes the given subprocess command.
+
+    Set logger to None or a custom Proglog logger to avoid printings.
+
+    NOTE: SEE MOVIEPY library!
+    """
+    print(f'Running:\n>>> "+ {cmd}')
+
+    popen_params = {"stdout": DEVNULL,
+                    "stderr": sp.PIPE,
+                    "stdin": DEVNULL}
+
+    if os.name == "nt":
+        popen_params["creationflags"] = 0x08000000
+
+    proc = sp.Popen(cmd, shell=True, **popen_params)
+
+    out, err = proc.communicate()  # proc.wait()
+    proc.stderr.close()
+
+    if proc.returncode:
+        if errorprint:
+            print('Moviepy - Command returned an error')
+        raise IOError(err.decode('utf8'))
+    else:
+        print('Command successful')
+
+
+    del proc

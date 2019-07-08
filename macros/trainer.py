@@ -1,7 +1,7 @@
 import datetime as dt
-from smashbros_controller import ControllerManager
-from screen_manager import start_screencap, overlay
-import constants
+from smashbros_controller import ControllerManager, reset_practice
+from screen_manager import start_screencap, overlay, trim_video, lengthen_video, adjust_video
+import util
 import sys
 import bridge
 import time
@@ -86,36 +86,49 @@ class BackException(Exception):
 
 
 def record(character, move):
-    filename = f'/home/awkii/{character}/{move}'
+    filename = f'/home/awkii/macros/{character}/{move}'
     controller = ControllerManager(filename)
     print('starting controller')
-    controller.start()
+    controller.with_controller()
+    controller_start = controller.start()
     print('starting screencap')
 
     def should_kill_callback():
-        return not controller.thread.isAlive()
-    start_screencap(filename, should_kill_callback)
+        return not controller.thread.is_alive()
+    screen_start = start_screencap(filename, should_kill_callback)
     print('joining threads')
     controller.stop()
+    time.sleep(1)
+    adjust_video(filename, controller_start.value - screen_start)
 
 
 def playback(character, move):
-    filename = f'/home/awkii/{character}/{move}'
-    controller = ControllerManager()
-    controller.with_playback(filename)
-    controller.start()
-    overlay('march_1.avi', 'march_2.avi')
+    filename = f'/home/awkii/macros/{character}/{move}'
 
-    def should_kill_callback():
-        return not controller.thread.isAlive()
-    start_screencap(filename, should_kill_callback)
-    print('joining threads')
-    controller.stop()
+    for i in range(2):
+        print('TRY #' + str(i + 1))
+        controller = ControllerManager()
+        controller.with_action(reset_practice().play())
+        controller.with_playback(filename)
+        controller_start = controller.start()
+
+        def should_kill_callback():
+            return not controller.thread.is_alive()
+
+        screen_filename = filename + str(i + 1)
+        screen_start = start_screencap(screen_filename, should_kill_callback)
+        print('joining threads')
+        controller.stop()
+        adjust_video(screen_filename, controller_start.value - screen_start)
+
+    overlay(filename + '1', filename + '2')
 
 
 def main():
-    playback('test', 'utilt')
-    # record('fox', 'utilt')
+    record('test', 'sample')
+    playback('test', 'sample')
+    # overlay('/home/awkii/macros/test/sample1', '/home/awkii/macros/test/sample2')
+    # lengthen_video('/home/awkii/macros/test/utilt.avi', 3.5)
     # characters = constants.get_characters()
     # for idx, c in enumerate(characters):
     #     print(f'{idx}: {c}')

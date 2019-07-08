@@ -6,6 +6,7 @@ import serial
 import datetime as dt
 import time
 import threading
+import multiprocessing
 
 from enum import IntEnum
 
@@ -25,6 +26,7 @@ class ControllerManager:
         self.thread = None
         self.recording_stream = None
         self.running_lock = threading.Lock()
+        self.manager = None
         if record_filename:
             self.with_recording(record_filename)
 
@@ -33,18 +35,27 @@ class ControllerManager:
             print('[!] Asynchroneous video capturing has already been started.')
             return None
         self.started = True
-        self.thread = threading.Thread(daemon=True, target=self.update_loop, args=())
+        self.manager = multiprocessing.Manager()
+        value = self.manager.Value('i', 0)
+        # self.thread = threading.Thread(daemon=True, target=self.update_loop, args=())
+        self.thread = multiprocessing.Process(daemon=True, target=self.update_loop, args=(value, ))
         self.thread.start()
+        return value
 
     def stop(self):
         with self.running_lock:
             self.started = False
         self.thread.join()
+        self.ser.close()
         if self.recording_stream:
             self.recording_stream.close()
 
+    def with_action(self, action):
+        self.input_stack.push(iter([None]))
+        self.input_stack.push(action)
+
     def with_playback(self, filename):
-        self.input_stack.push(play_file(filename))
+        self.input_stack.push(play_file(filename + '.map'))
 
     def with_recording(self, filename):
         self.recording_stream = open(filename + '.map', 'wb')
@@ -52,46 +63,55 @@ class ControllerManager:
     def with_controller(self, controller_idx='0'):
         self.input_stack.push(controller_states(controller_idx))
 
-    def update_loop(self):
-        last_time = dt.datetime.now().timestamp()
-        while True:
-            with self.running_lock:
-                if not self.started:
-                    break
-            curr_time = dt.datetime.now().timestamp()
+    def _is_running(self):
+        with self.running_lock:
+            return self.started
+
+    def update_loop(self, data):
+        start_dttm = dt.datetime.now().timestamp()
+        data.value = start_dttm
+        prev_msg_stamp = None
+
+        while self._is_running():
             try:
-                self.update(last_time - curr_time)
+                for e in sdl2.ext.get_events():
+                    if e.type == sdl2.SDL_CONTROLLERBUTTONDOWN:
+                        if e.jbutton.button == sdl2.SDL_CONTROLLER_BUTTON_BACK:
+                            raise StopIteration('Updates manually stopped')
+                msg_stamp = next(self.input_stack)
+                # reset clock if msg_stamp is None
+                if msg_stamp is None:
+                    start_dttm = dt.datetime.now().timestamp()
+                    continue
+                # This this input has aleady been entered, then don't spam the stack
+                if prev_msg_stamp and msg_stamp.message == prev_msg_stamp.message:
+                    continue
+                # If a message doesn't have a delta, that means execute ASAP.
+                if not msg_stamp.delta:
+                    msg_stamp = ControllerStateTime(msg_stamp.message, dt.datetime.now().timestamp() - start_dttm)
+                # Wait for the correct amount of time to pass before performing an input
+                while True:
+                    elapsed_delta = dt.datetime.now().timestamp() - start_dttm
+                    if msg_stamp.delta < elapsed_delta:
+                        break
+                self.ser.write(msg_stamp.formatted_message())
+                if self.recording_stream:
+                    self.recording_stream.write(msg_stamp.serialize() + b'\n')
+                prev_msg_stamp = msg_stamp
             except StopIteration:
-                return
-            last_time = curr_time
-            time.sleep(0.005)  # sleep 5 ms to calm down
-
-    def update(self, delta):
-        self.delta += delta
-        sdl2.ext.get_events()
-        msg_stamp = next(self.input_stack)
-        # no message stamp is a sign to reset the playback clock
-        if msg_stamp is None:
-            self.delta = 0
-        # This this input has aleady been entered, then don't spam the stack
-        if self.prev_msg_stamp and msg_stamp.message == self.prev_msg_stamp.message:
-            return
-        # Wait for the correct amount of time to pass before performing an input
-        if msg_stamp.delta < self.delta:
-            return
-        self.ser.write(msg_stamp.formatted_message())
-        # if recording, now would be a good time to write
-        if self.recording_stream:
-            self.recording_stream.write(msg_stamp.serialize() + b'\n')
-        self.prev_msg_stamp = msg_stamp
-
-        while True:
-            # wait for the arduino to request another state.
-            response = self.ser.read(1)
-            if response == b'U':
+                if self.recording_stream:
+                    msg_stamp = ControllerStateTime(message(128, 128, 128, 128),
+                                                    dt.datetime.now().timestamp() - start_dttm)
+                    self.recording_stream.write(msg_stamp.serialize() + b'\n')
                 break
-            elif response == b'X':
-                print('Arduino reported buffer overrun.')
+
+            while True:
+                # wait for the arduino to request another state.
+                response = self.ser.read(1)
+                if response == b'U':
+                    break
+                elif response == b'X':
+                    print('Arduino reported buffer overrun.')
 
 
 def message(lx=128, ly=128, rx=128, ry=128, *inputs):
@@ -141,9 +161,6 @@ class ContinuousAction:
         for m in self.actions:
             if isinstance(m, str):
                 print('> ', m)
-            elif isinstance(m, callable):
-                print(f'> Running subroutine {m.__name__}')
-                m()
             else:
                 yield m
 

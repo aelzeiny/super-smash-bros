@@ -77,11 +77,8 @@ hatcodes = [8, 0, 2, 1, 4, 8, 3, 8, 6, 7, 8, 8, 5, 8, 8]
 axis_deadzone = 5000
 trigger_deadzone = 0
 
-start_dttm = dt.datetime.now().timestamp()
-
 
 def controller_states(controller_id, force_axis=False):
-
     sdl2.SDL_Init(sdl2.SDL_INIT_GAMECONTROLLER)
 
     controller = get_controller(controller_id)
@@ -93,7 +90,6 @@ def controller_states(controller_id, force_axis=False):
         print('Using controller {:s} for input.'.format(controller_id))
 
     while True:
-        elaped_time = dt.datetime.now().timestamp() - start_dttm
         buttons = sum([sdl2.SDL_GameControllerGetButton(controller, b) << n for n, b in enumerate(buttonmapping)])
         buttons |= (abs(sdl2.SDL_GameControllerGetAxis(controller, sdl2.SDL_CONTROLLER_AXIS_TRIGGERLEFT)) > trigger_deadzone) << 6
         buttons |= (abs(sdl2.SDL_GameControllerGetAxis(controller, sdl2.SDL_CONTROLLER_AXIS_TRIGGERRIGHT)) > trigger_deadzone) << 7
@@ -107,7 +103,7 @@ def controller_states(controller_id, force_axis=False):
             axis[1] = 128 if axis[1] == 128 else 0 if axis[1] < 128 else 255
 
         rawbytes = struct.pack('>BHBBBB', hat, buttons, *axis)
-        message_stamp = ControllerStateTime(rawbytes, elaped_time)
+        message_stamp = ControllerStateTime(rawbytes, None)
         yield message_stamp
 
 
@@ -123,6 +119,8 @@ def example_macro():
     hat = 8
     rx = 128
     ry = 128
+    yield None
+    start_dttm = dt.datetime.now().timestamp()
     for i in range(240):
         elapsed_time = dt.datetime.now().timestamp() - start_dttm
         lx = int((1.0 + math.sin(2 * math.pi * i / 240)) * 127)
@@ -206,6 +204,7 @@ if __name__ == '__main__':
         with tqdm(unit=' updates', disable=args.quiet) as pbar:
             try:
                 prev_msg_stamp = None
+                start_dttm = dt.datetime.now().timestamp()
                 while True:
                     for event in sdl2.ext.get_events():
                         # we have to fetch the events from SDL in order for the controller
