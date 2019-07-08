@@ -85,21 +85,25 @@ class BackException(Exception):
     pass
 
 
-def record(character, move):
-    filename = f'/home/awkii/macros/{character}/{move}'
-    controller = ControllerManager(filename)
+def controller_and_video(controller, video_savepath):
+    def should_kill_callback():
+        return not controller.thread.is_alive()
+
     print('starting controller')
-    controller.with_controller()
     controller_start = controller.start()
     print('starting screencap')
 
-    def should_kill_callback():
-        return not controller.thread.is_alive()
-    screen_start = start_screencap(filename, should_kill_callback)
+    screen_start = start_screencap(video_savepath, should_kill_callback)
     print('joining threads')
     controller.stop()
-    time.sleep(1)
-    adjust_video(filename, controller_start.value - screen_start)
+    adjust_video(video_savepath, controller_start.value - screen_start)
+
+
+def record(character, move):
+    filename = f'/home/awkii/macros/{character}/{move}'
+    controller = ControllerManager(filename)
+    controller.with_controller()
+    controller_and_video(controller, filename)
 
 
 def playback(character, move):
@@ -110,16 +114,9 @@ def playback(character, move):
         controller = ControllerManager()
         controller.with_action(reset_practice().play())
         controller.with_playback(filename)
-        controller_start = controller.start()
-
-        def should_kill_callback():
-            return not controller.thread.is_alive()
-
         screen_filename = filename + str(i + 1)
-        screen_start = start_screencap(screen_filename, should_kill_callback)
-        print('joining threads')
-        controller.stop()
-        adjust_video(screen_filename, controller_start.value - screen_start)
+
+        controller_and_video(controller, screen_filename)
 
     overlay(filename + '1', filename + '2')
 
