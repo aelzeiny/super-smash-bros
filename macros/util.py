@@ -16,10 +16,6 @@ def move_list():
 
 def get_characters():
     return [
-        "PIRANHA PLANT",
-        "JOKER",
-        "HERO",
-        "BANJO & KAZOOIE",
         "MARIO",
         "DONKEY KONG",
         "LINK",
@@ -94,7 +90,11 @@ def get_characters():
         "RICHTER",
         "KING K. ROOL",
         "ISABELLE",
-        "INCINEROAR"
+        "INCINEROAR",
+        "PIRANHA PLANT",
+        "JOKER",
+        "HERO",
+        "BANJO & KAZOOIE"
     ]
 
 

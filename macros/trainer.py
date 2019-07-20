@@ -1,11 +1,18 @@
-import datetime as dt
+import os
+import cv2
+
 from smashbros_controller import ControllerManager, reset_practice
-from screen_manager import start_screencap, overlay, trim_video, lengthen_video, adjust_video
+from screen_manager import start_screencap, overlay, adjust_video
 import util
 import sys
 import bridge
 import time
 import sdl2
+
+
+def get_path(character, move):
+    char_name = ''.join(c for c in character.lower() if c.isalnum())
+    return f'/home/awkii/macros/{char_name}/{move.lower()}'
 
 
 class CliList:
@@ -49,34 +56,24 @@ class CliController:
         self.buffer = 0
 
     def get_input(self):
-        start = dt.datetime.now().timestamp()
         while True:
-            sdl2.ext.get_events()
-            delta = dt.datetime.now().timestamp() - start
-            curr_input = [b for b in bridge.buttonmapping + bridge.hatmapping
-                          if sdl2.SDL_GameControllerGetButton(self.controller, b)]
-            if not curr_input:
-                self.buffer = 0
-                continue
-            if self.last_input != curr_input:
-                self.buffer = 0
-            if self.buffer > self.__class__.MAX_BUFFER:
-                self.buffer = 0
-                return curr_input
-            self.buffer += delta
-            self.last_input = curr_input
-            time.sleep(0.005)
+            for e in sdl2.ext.get_events():
+                if e.type == sdl2.SDL_CONTROLLERBUTTONDOWN:
+                    return e.jbutton.button
+            time.sleep(0.05)
 
-    def choose_from_list(self, arr):
+    @staticmethod
+    def choose_from_list(arr):
+        controller = CliController()
         cli = CliList(arr)
         cli.render()
         while True:
-            msg = self.get_input()
-            if sdl2.SDL_CONTROLLER_BUTTON_DPAD_DOWN in msg:
+            msg = controller.get_input()
+            if sdl2.SDL_CONTROLLER_BUTTON_DPAD_DOWN == msg:
                 cli.increment()
-            elif sdl2.SDL_CONTROLLER_BUTTON_DPAD_UP in msg:
+            elif sdl2.SDL_CONTROLLER_BUTTON_DPAD_UP == msg:
                 cli.decrement()
-            elif sdl2.SDL_CONTROLLER_BUTTON_START in msg or sdl2.SDL_CONTROLLER_BUTTON_B:
+            elif sdl2.SDL_CONTROLLER_BUTTON_START == msg or sdl2.SDL_CONTROLLER_BUTTON_B == msg:
                 return cli.index
             cli.render()
 
@@ -91,23 +88,26 @@ def controller_and_video(controller, video_savepath):
 
     print('starting controller')
     controller_start = controller.start()
-    print('starting screencap')
 
+    print('starting screencap')
     screen_start = start_screencap(video_savepath, should_kill_callback)
+
     print('joining threads')
     controller.stop()
     adjust_video(video_savepath, controller_start.value - screen_start)
+    cv2.destroyWindow(video_savepath)
+    cv2.waitKey(1)
 
 
 def record(character, move):
-    filename = f'/home/awkii/macros/{character}/{move}'
+    filename = get_path(character, move)
     controller = ControllerManager(filename)
     controller.with_controller()
     controller_and_video(controller, filename)
 
 
 def playback(character, move):
-    filename = f'/home/awkii/macros/{character}/{move}'
+    filename = get_path(character, move)
 
     for i in range(2):
         print('TRY #' + str(i + 1))
@@ -122,32 +122,37 @@ def playback(character, move):
 
 
 def main():
-    record('test', 'sample')
-    playback('test', 'sample')
-    # overlay('/home/awkii/macros/test/sample1', '/home/awkii/macros/test/sample2')
-    # lengthen_video('/home/awkii/macros/test/utilt.avi', 3.5)
-    # characters = constants.get_characters()
-    # for idx, c in enumerate(characters):
-    #     print(f'{idx}: {c}')
-    # character_idx = int(input('Select Character: '))
-    # print(characters[character_idx])
-    # controller = CliController()
-    # moves = constants.move_list()
-    # is_running = True
-    # while is_running:
-    #     try:
-    #         move_idx = controller.choose_from_list(moves)
-    #         print('\n', moves[move_idx])
-    #         playback_idx = controller.choose_from_list(['record', 'playback', 'back'])
-    #         print('\n', playback_idx)
-    #         if playback_idx == 0:
-    #             record(characters[character_idx], moves[move_idx])
-    #         elif playback_idx == 1:
-    #             playback(characters[character_idx], moves[move_idx])
-    #         else:
-    #             raise BackException
-    #     except BackException:
-    #         pass
+    characters = util.get_characters()
+    for idx, c in enumerate(characters):
+        print(f'{idx}: {c}')
+    character_idx = int(input('Select Character: '))
+    selected_character = characters[character_idx]
+    print(selected_character)
+    character_dir = get_path(selected_character, '')
+    is_running = True
+    while is_running:
+        try:
+            try:
+                curr_moves = set([c[:-4] for c in os.listdir(character_dir) if c.endswith('.map')])
+            except FileNotFoundError:
+                os.mkdir(character_dir)
+                curr_moves = []
+            moves = [m + '*' if m in curr_moves else m for m in util.move_list()]
+            move_idx = CliController.choose_from_list(moves)
+            selected_move = moves[move_idx].rstrip('*')
+            print('\n', moves[move_idx])
+            playback_idx = CliController.choose_from_list(['record', 'playback', 'back'])
+            print('\n', playback_idx)
+            if playback_idx == 0:
+                record(selected_character, selected_move)
+                time.sleep(1)
+            elif playback_idx == 1:
+                playback(selected_character, selected_move)
+                time.sleep(1)
+            else:
+                raise BackException
+        except BackException:
+            pass
 
 
 if __name__ == '__main__':

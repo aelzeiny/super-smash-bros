@@ -47,8 +47,6 @@ class ControllerManager:
             self.started = False
         self.thread.join()
         self.ser.close()
-        if self.recording_stream:
-            self.recording_stream.close()
 
     def with_action(self, action):
         self.input_stack.push(iter([None]))
@@ -58,7 +56,7 @@ class ControllerManager:
         self.input_stack.push(play_file(filename + '.map'))
 
     def with_recording(self, filename):
-        self.recording_stream = open(filename + '.map', 'wb')
+        self.recording_stream = filename
 
     def with_controller(self, controller_idx='0'):
         self.input_stack.push(controller_states(controller_idx))
@@ -71,6 +69,7 @@ class ControllerManager:
         start_dttm = dt.datetime.now().timestamp()
         data.value = start_dttm
         prev_msg_stamp = None
+        msg_stream = []
 
         while self._is_running():
             try:
@@ -87,7 +86,7 @@ class ControllerManager:
                 if prev_msg_stamp and msg_stamp.message == prev_msg_stamp.message:
                     continue
                 # If a message doesn't have a delta, that means execute ASAP.
-                if not msg_stamp.delta:
+                if msg_stamp.delta is None:
                     msg_stamp = ControllerStateTime(msg_stamp.message, dt.datetime.now().timestamp() - start_dttm)
                 # Wait for the correct amount of time to pass before performing an input
                 while True:
@@ -95,14 +94,17 @@ class ControllerManager:
                     if msg_stamp.delta < elapsed_delta:
                         break
                 self.ser.write(msg_stamp.formatted_message())
-                if self.recording_stream:
-                    self.recording_stream.write(msg_stamp.serialize() + b'\n')
+                msg_stream.append(msg_stamp)
                 prev_msg_stamp = msg_stamp
             except StopIteration:
                 if self.recording_stream:
-                    msg_stamp = ControllerStateTime(message(128, 128, 128, 128),
-                                                    dt.datetime.now().timestamp() - start_dttm)
-                    self.recording_stream.write(msg_stamp.serialize() + b'\n')
+                    if self.recording_stream and msg_stream:
+                        with open(self.recording_stream + '.map', 'wb') as recording_stream:
+                            for msg in msg_stream:
+                                recording_stream.write(msg.serialize() + b'\n')
+                            msg_stamp = ControllerStateTime(message(128, 128, 128, 128),
+                                                            dt.datetime.now().timestamp() - start_dttm)
+                            recording_stream.write(msg_stamp.serialize() + b'\n')
                 break
 
             while True:

@@ -39,18 +39,21 @@ def overlay(filename_a, filename_b):
     cap_a = cv2.VideoCapture(filename_a + '.avi')
     cap_b = cv2.VideoCapture(filename_b + '.avi')
 
-    while cap_a.isOpened() and cap_b.isOpened():
-        ret_a, frame_a = cap_a.read()
-        ret_b, frame_b = cap_b.read()
-        if not ret_a or not ret_b:
-            break
-        added = cv2.addWeighted(frame_a, 0.5, frame_b, 0.5, 0)
-        cv2.imshow('frame', added)
-        if cv2.waitKey(10) & 0xFF == ord('q'):
-            break
-
-    cap_a.release()
-    cap_b.release()
+    try:
+        while cap_a.isOpened() and cap_b.isOpened():
+            ret_a, frame_a = cap_a.read()
+            ret_b, frame_b = cap_b.read()
+            if not ret_a or not ret_b:
+                break
+            added = cv2.addWeighted(frame_a, 0.5, frame_b, 0.5, 0)
+            cv2.imshow('overlay', added)
+            if cv2.waitKey(10) & 0xFF == ord('q'):
+                break
+    finally:
+        cap_a.release()
+        cap_b.release()
+        cv2.destroyWindow('overlay')
+        cv2.waitKey(1)
 
 
 def start_screencap(output_filename, should_kill_callback, width=1024, height=768, fps=60):
@@ -83,7 +86,7 @@ def start_screencap(output_filename, should_kill_callback, width=1024, height=76
             # Write the frame into the file 'output.avi'
             out.write(frame)
             # Display the resulting frame
-            cv2.imshow('frame', frame)
+            cv2.imshow(output_filename, frame)
             # Press Q on keyboard to stop recording
             if cv2.waitKey(1) & 0xFF == ord('q') or should_kill_callback():
                 break

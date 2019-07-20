@@ -226,7 +226,7 @@ if __name__ == '__main__':
                         # Wait for the correct amount of time to pass before performing an input
                         while True:
                             elapsed_delta = dt.datetime.now().timestamp() - start_dttm
-                            if msg_stamp.delta < elapsed_delta:
+                            if not msg_stamp.delta or msg_stamp.delta < elapsed_delta:
                                 break
                         ser.write(msg_stamp.formatted_message())
                         prev_msg_stamp = msg_stamp
