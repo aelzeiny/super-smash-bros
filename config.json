@@ -1,0 +1,5 @@
+{
+  "controller_id": 0,
+  "port": "COM7",
+  "baud_rate": 115200
+}

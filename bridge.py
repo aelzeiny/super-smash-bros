@@ -1,4 +1,8 @@
-#!/usr/bin/env python3
+"""
+NOTE: I take no credit for Phroon's original work. This is a modified version of their bridge.py, with a few changes
+that makes for significantly better playback & tighter controlls.
+...seealso: https://github.com/Phroon/switch-controller
+"""
 
 
 import argparse
@@ -74,11 +78,14 @@ hatmapping = [
 
 hatcodes = [8, 0, 2, 1, 4, 8, 3, 8, 6, 7, 8, 8, 5, 8, 8]
 
-axis_deadzone = 5000
+axis_deadzone = 1000
 trigger_deadzone = 0
 
+start_dttm = dt.datetime.now().timestamp()
 
-def controller_states(controller_id, force_axis=False):
+
+def controller_states(controller_id):
+
     sdl2.SDL_Init(sdl2.SDL_INIT_GAMECONTROLLER)
 
     controller = get_controller(controller_id)
@@ -90,6 +97,7 @@ def controller_states(controller_id, force_axis=False):
         print('Using controller {:s} for input.'.format(controller_id))
 
     while True:
+        elaped_time = dt.datetime.now().timestamp() - start_dttm
         buttons = sum([sdl2.SDL_GameControllerGetButton(controller, b) << n for n, b in enumerate(buttonmapping)])
         buttons |= (abs(sdl2.SDL_GameControllerGetAxis(controller, sdl2.SDL_CONTROLLER_AXIS_TRIGGERLEFT)) > trigger_deadzone) << 6
         buttons |= (abs(sdl2.SDL_GameControllerGetAxis(controller, sdl2.SDL_CONTROLLER_AXIS_TRIGGERRIGHT)) > trigger_deadzone) << 7
@@ -98,12 +106,9 @@ def controller_states(controller_id, force_axis=False):
 
         rawaxis = [sdl2.SDL_GameControllerGetAxis(controller, n) for n in axismapping]
         axis = [((0 if abs(x) < axis_deadzone else x) >> 8) + 128 for x in rawaxis]
-        if force_axis:
-            axis[0] = 128 if axis[0] == 128 else 0 if axis[0] < 128 else 255
-            axis[1] = 128 if axis[1] == 128 else 0 if axis[1] < 128 else 255
 
         rawbytes = struct.pack('>BHBBBB', hat, buttons, *axis)
-        message_stamp = ControllerStateTime(rawbytes, None)
+        message_stamp = ControllerStateTime(rawbytes, elaped_time)
         yield message_stamp
 
 
@@ -119,8 +124,6 @@ def example_macro():
     hat = 8
     rx = 128
     ry = 128
-    yield None
-    start_dttm = dt.datetime.now().timestamp()
     for i in range(240):
         elapsed_time = dt.datetime.now().timestamp() - start_dttm
         lx = int((1.0 + math.sin(2 * math.pi * i / 240)) * 127)
@@ -168,7 +171,6 @@ class ControllerStateTime (namedtuple('ControllerStateTime', ('message', 'delta'
         return pickle.loads(binascii.unhexlify(self))
 
 
-
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
@@ -204,19 +206,19 @@ if __name__ == '__main__':
         with tqdm(unit=' updates', disable=args.quiet) as pbar:
             try:
                 prev_msg_stamp = None
-                start_dttm = dt.datetime.now().timestamp()
                 while True:
-                    for event in sdl2.ext.get_events():
-                        # we have to fetch the events from SDL in order for the controller
-                        # state to be updated.
+                    if args.playback is None:
+                        for event in sdl2.ext.get_events():
+                            # we have to fetch the events from SDL in order for the controller
+                            # state to be updated.
 
-                        # example of running a macro when a joystick button is pressed:
-                        # if event.type == sdl2.SDL_CONTROLLERBUTTONDOWN:
-                        #    # if event.jbutton.button == 1:
-                        #    input_stack.push(example_macro())
-                        # or play from file:
-                        #        input_stack.push(replay_states(filename))
-                        pass
+                            # example of running a macro when a joystick button is pressed:
+                            # if event.type == sdl2.SDL_CONTROLLERBUTTONDOWN:
+                            #    # if event.jbutton.button == 1:
+                            #    input_stack.push(example_macro())
+                            # or play from file:
+                            #        input_stack.push(replay_states(filename))
+                            pass
 
                     try:
                         msg_stamp = next(input_stack)
@@ -226,7 +228,7 @@ if __name__ == '__main__':
                         # Wait for the correct amount of time to pass before performing an input
                         while True:
                             elapsed_delta = dt.datetime.now().timestamp() - start_dttm
-                            if not msg_stamp.delta or msg_stamp.delta < elapsed_delta:
+                            if msg_stamp.delta < elapsed_delta:
                                 break
                         ser.write(msg_stamp.formatted_message())
                         prev_msg_stamp = msg_stamp
@@ -239,13 +241,17 @@ if __name__ == '__main__':
                     pbar.set_description('Sent {:s}'.format(msg_stamp.formatted_message()[:-1].decode('utf8')))
                     pbar.update()
 
-                    while True:
-                        # wait for the arduino to request another state.
-                        response = ser.read(1)
-                        if response == b'U':
-                            break
-                        elif response == b'X':
-                            print('Arduino reported buffer overrun.')
+                    # YOLO: I don't read books
+                    # while True:
+                    #     # wait for the arduino to request another state.
+                    #     response = ser.read(1)
+                    #     if response == b'U':
+                    #         break
+                    #     elif response == b'X':
+                    #         print('Arduino reported buffer overrun.')
 
             except KeyboardInterrupt:
                 print('\nExiting due to keyboard interrupt.')
+            finally:
+                if hasattr(record, 'flush'):
+                    record.flush()
