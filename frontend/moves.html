@@ -28,7 +28,7 @@
 {% block content %}
     {{ super() }}
     <div class="container-fluid" style="text-align: center">
-        <label id="recording">RECORDING</label>
+        <label id="recording">???</label>
         <video autoplay="true" id="videoElement"></video>
 
         <h3>{{ character }}</h3>
@@ -73,10 +73,10 @@
 
         $('#record-button').click(() => {
             $.ajax({
-                url: `/recording/${character}/${move}/start`,
+                url: `/${selectedCharacter}/${selectedMove}/record`,
                 method: 'POST'
             }).then(() => {
-                recordingLabel.text(`RECORDING: ${character} ${move}`);
+                recordingLabel.text(`RECORDING: ${selectedCharacter} ${selectedMove}`);
                 recordingLabel.addClass('visible');
                 $("html, body").animate({ scrollTop: 0 }, "fast");
             });
@@ -84,10 +84,10 @@
 
         $('#playback-button').click(() => {
             $.ajax({
-                url: `/recording/${character}/${move}/start`,
+                url: `/${selectedCharacter}/${selectedMove}/playback`,
                 method: 'POST'
             }).then(() => {
-                recordingLabel.text(`RECORDING: ${character} ${move}`);
+                recordingLabel.text(`PLAYBACK: ${selectedCharacter} ${selectedMove}`);
                 recordingLabel.addClass('visible');
                 $("html, body").animate({ scrollTop: 0 }, "fast");
             });

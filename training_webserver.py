@@ -28,9 +28,10 @@ def character_select(char):
     return render_template('moves.html', character=char, moves=move_list)
 
 
-@app.route('/recording/<char>/<move>/start', methods=['POST'])
+@app.route('/<char>/<move>/record', methods=['POST'])
 def start_recording_and_macro(char, move):
     # remove all recorded files for this macro
+    smash_utils.ensure_directory(char)
     for file in smash_utils.list_recording_files(char, move):
         os.remove(file)
     # start recording
@@ -47,7 +48,7 @@ def start_recording_and_macro(char, move):
     return '', 204
 
 
-@app.route('/playback/<char>/<move>', methods=['POST'])
+@app.route('/<char>/<move>/playback', methods=['POST'])
 def start_playback(char, move):
     start_dttm = dt.datetime.now() + dt.timedelta(seconds=3)
     end_dttm = orchestrator.relay_playback(
@@ -63,7 +64,7 @@ def start_playback(char, move):
     return '', 204
 
 
-@app.route('/recording/stop', methods=['POST'])
+@app.route('/stop', methods=['POST'])
 def stop_recording_and_macro():
     orchestrator.relay_stop()
     orchestrator.recorder_stop()

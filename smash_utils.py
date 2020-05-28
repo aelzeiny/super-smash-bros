@@ -54,6 +54,12 @@ def list_recording_files(character: str, move: str):
     ]
 
 
+def ensure_directory(character: str):
+    dir_name = f'./macros/{character}'
+    if not os.path.exists(dir_name):
+        os.mkdir(dir_name)
+
+
 def subprocess_call(cmd: str, errorprint=True):
     """ Executes the given subprocess command. """
     print(f'Running:\n>>> "+ {cmd}')
@@ -81,8 +87,9 @@ def subprocess_call(cmd: str, errorprint=True):
 
 
 def read_relay_config():
-    config_path = str(Path(__file__).parent() / 'config.json')
-    return json.loads(config_path)
+    config_path = str(Path(__file__).parent / 'config.json')
+    with open(config_path) as f:
+        return json.load(f)
 
 
 CURSOR_UP_ONE = '\x1b[1A'
