@@ -1,5 +1,9 @@
 import os
+import json
 import subprocess as sp
+from pathlib import Path
+import datetime as dt
+
 import colorama
 DEVNULL = open(os.devnull, 'wb')
 
@@ -29,6 +33,27 @@ MOVE_LIST = [
 ]
 
 
+def wait_for_time(dttm: dt.datetime):
+    while dt.datetime.now() < dttm:
+        pass
+
+
+def get_macro_file(character: str, move: str) -> str:
+    return f'./macros/{character}/{move}.macro'
+
+
+def get_recording_file(character: str, move: str, suffix: str) -> str:
+    return f'./macros/{character}/{move}_{suffix}.mp4'
+
+
+def list_recording_files(character: str, move: str):
+    return [
+        f'./macros/{character}/{f}' for f in
+        os.listdir(f'./macros/{character}')
+        if f.startswith(f'{move}_') and f.endswith('.mp4')
+    ]
+
+
 def subprocess_call(cmd: str, errorprint=True):
     """ Executes the given subprocess command. """
     print(f'Running:\n>>> "+ {cmd}')
@@ -53,6 +78,11 @@ def subprocess_call(cmd: str, errorprint=True):
         print('Command successful')
 
     del proc
+
+
+def read_relay_config():
+    config_path = str(Path(__file__).parent() / 'config.json')
+    return json.loads(config_path)
 
 
 CURSOR_UP_ONE = '\x1b[1A'

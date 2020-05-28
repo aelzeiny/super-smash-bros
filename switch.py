@@ -6,6 +6,7 @@ import serial
 import datetime as dt
 import pickle
 
+from smash_utils import wait_for_time
 from collections import namedtuple
 
 
@@ -58,7 +59,7 @@ class SwitchRelay:
             return
 
         # Wait for the correct amount of time to pass before performing an input
-        self.wait_for_time(self.start_dttm + dt.timedelta(seconds=msg_stamp.delta))
+        wait_for_time(self.start_dttm + dt.timedelta(seconds=msg_stamp.delta))
         self.ser.write(msg_stamp.formatted_message())
 
         # record result if needed
@@ -69,14 +70,14 @@ class SwitchRelay:
 
     def playback_recording(self, path: str, start_dttm: dt.datetime):
         self.start_dttm = start_dttm
-        self.wait_for_time(start_dttm)
+        wait_for_time(start_dttm)
 
         playback_iter = self.replay_states(path)
         self.input_stack = playback_iter
 
     def start_recording(self, path: str, start_dttm: dt.datetime):
         self.start_dttm = start_dttm
-        self.wait_for_time(start_dttm)
+        wait_for_time(start_dttm)
 
         live = self.controller_states()
         self.recording = open(path)
@@ -119,10 +120,6 @@ class SwitchRelay:
                 # remove new-line character at end of line, and feed it into deserializer
                 yield ControllerStateTime.deserialize(line[:-1])
 
-    @staticmethod
-    def wait_for_time(dttm: dt.datetime):
-        while dt.datetime.now() < dttm:
-            pass
 
     buttonmapping = [
         sdl2.SDL_CONTROLLER_BUTTON_X,  # Y
@@ -159,3 +156,7 @@ class SwitchRelay:
 
     axis_deadzone = 1000
     trigger_deadzone = 0
+
+    @classmethod
+    def get_macro_duration(cls, input_macro_path):
+        return sum([state.delta for state in cls.replay_states(input_macro_path)])

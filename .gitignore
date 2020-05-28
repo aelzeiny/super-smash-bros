@@ -4,3 +4,5 @@ __pycache__
 smash_pics
 env
 .ipynb_checkpoints
+
+frontend/static/characters

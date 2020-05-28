@@ -1,60 +1,14 @@
-from pathlib import Path
-
-import sdl2
-import serial
-
 from switch import SwitchRelay
-import os
 import datetime as dt
-import json as json_util
-from multiprocessing import Pipe, Process
-
-from smash_utils import CHARACTERS, MOVE_LIST, ConsoleList
-from webcam_recorder import WebCamRecorder
+from multiprocessing import Queue, Process
+from typing import Optional, Tuple
+from smash_utils import read_relay_config
 
 
-def get_macro_file(character: str, move: str) -> str:
-    return f'./macros/{character}/{move}.macro'
-
-
-def get_recording_file(character: str, move: str, tag=0) -> str:
-    return f'./macros/{character}/{move}_{str(tag).zfill(2)}.mp4'
-
-
-def select_menu_with_controller(desc, arr):
-    console_list = ConsoleList(desc, arr)
-    console_list.display()
-
-    while True:
-        for event in sdl2.ext.get_events():
-            if event.type == sdl2.SDL_CONTROLLERBUTTONDOWN:
-                if event.jbutton.button == sdl2.SDL_CONTROLLER_BUTTON_DPAD_DOWN:
-                    console_list.set_index(max(0, console_list.idx - 1))
-                elif event.jbutton.button == sdl2.SDL_CONTROLLER_BUTTON_DPAD_UP:
-                    console_list.set_index(max(len(arr) - 1, console_list.idx + 1))
-                elif event.jbutton.button == sdl2.SDL_CONTROLLER_BUTTON_B:
-                    return arr[console_list.idx]
-                console_list.display()
-
-
-def select_character():
-    return select_menu_with_controller('Select Character: ', CHARACTERS)
-
-
-def select_move():
-    return select_menu_with_controller('Select Move: ', MOVE_LIST)
-
-
-def select_should_record(character, move):
-    if not os.path.exists(get_macro_file(character, move)):
-        return True
-    response = select_menu_with_controller('Overwrite or play: ', ('Record', 'Playback'))
-    return response == 'Record'
-
-
-def read_relay_config():
-    config_path = str(Path(__file__).parent() / 'config.json')
-    return json_util.loads(config_path)
+relay_q: Optional[Queue] = None
+recorder_q: Optional[Queue] = None
+relay_process: Optional[Process] = None
+recorder_process: Optional[Process] = None
 
 
 QUIT = 0
@@ -63,71 +17,102 @@ PLAYBACK = 2
 STOP = 3
 
 
-def start_relay_process(pipe):
+def start_processes():
+    global relay_process, relay_q, recorder_process, recorder_q
+
+    def _start_process(func) -> Tuple[Process, Queue]:
+        queue = Queue()
+        process = Process(target=func, args=(queue,))
+        return process, queue
+
+    relay_process, relay_q = _start_process(start_relay_process)
+    recorder_process, recorder_q = _start_process(start_recorder_process)
+
+
+def close():
+    relay_q.put(dict(
+        command=QUIT
+    ))
+    recorder_q.put(dict(
+        command=QUIT
+    ))
+    relay_process.join()
+    recorder_process.join()
+
+
+def start_relay_process(queue):
     relay_config = read_relay_config()
-    relay = SwitchRelay(
-        bytesize=serial.EIGHTBITS, parity=serial.PARITY_NONE,
-        stopbits=serial.STOPBITS_ONE, timeout=None, **relay_config
-    )
+    # relay = SwitchRelay(
+    #     bytesize=serial.EIGHTBITS, parity=serial.PARITY_NONE,
+    #     stopbits=serial.STOPBITS_ONE, timeout=None, **relay_config
+    # )
+
     while True:
-        json = pipe.recv()
-        if json['command'] == QUIT:
-            break
-        elif json['command'] == RECORD:
-            start_dttm = dt.datetime.fromtimestamp(json['start_dttm'])
-            relay.start_recording(json['path'], start_dttm)
-        elif json['command'] == PLAYBACK:
-            start_dttm = dt.datetime.fromtimestamp(json['start_dttm'])
-            relay.playback_recording(json['path'], start_dttm)
-        elif json['command'] == STOP:
-            relay.reset()
-        relay.heartbeat()
+        if not queue.empty():
+            cmd = queue.get_nowait()
+            print('>>>', cmd)
+            if cmd['command'] == QUIT:
+                break
+            elif cmd['command'] == RECORD:
+                start_dttm = dt.datetime.fromtimestamp(cmd['start_dttm'])
+                # relay.start_recording(cmd['path'], start_dttm)
+            elif cmd['command'] == PLAYBACK:
+                start_dttm = dt.datetime.fromtimestamp(cmd['start_dttm'])
+                # relay.playback_recording(cmd['path'], start_dttm)
+            elif cmd['command'] == STOP:
+                pass
+                # relay.reset()
+
+        # relay.heartbeat()
 
 
-def start_recorder_process(pipe):
-    recorder = WebCamRecorder()
+def start_recorder_process(queue):
     while True:
-        json = pipe.recv()
-        recorder.heatbeat()
+        if not queue.empty():
+            cmd = queue.get_nowait()
+            print('>>>', cmd)
+            if cmd['command'] == QUIT:
+                break
 
 
-if __name__ == '__main__':
-    controller_parent_conn, controller_child_conn = Pipe()
-    controller_process = Process(target=start_relay_process, args=(controller_child_conn, ))
+# region RELAY ACTIONS
+def relay_record(output_macro_path: str, start_dttm: dt.datetime):
+    relay_q.put(dict(
+        command=RECORD,
+        start_dttm=start_dttm,
+        path=output_macro_path
+    ))
 
-    recorder_parent_conn, recorder_child_conn = Pipe()
-    recorder_process = Process(target=start_recorder_process, args=(recorder_child_conn, ))
 
-    controller_process.start()
-    recorder_process.start()
+def relay_playback(input_macro_path: str, start_dttm: dt.datetime) -> dt.datetime:
+    """Starts controller playback & returns the end_dttm of playback"""
+    duration = SwitchRelay.get_macro_duration(input_macro_path)
+    relay_q.put(dict(
+        command=PLAYBACK,
+        path=input_macro_path,
+        start_dttm=start_dttm
+    ))
+    return start_dttm + dt.timedelta(seconds=duration)
 
-    character_str = select_character()
-    move_str = select_move(character_str)
-    should_record = select_should_record()
-    start_dttm = dt.datetime.now() + dt.timedelta(seconds=3)
-    if should_record:
-        controller_parent_conn.send(dict(
-            command=RECORD,
-            start_dttm=start_dttm,
-            path=get_macro_file(character_str, move_str)
-        ))
-        recorder_parent_conn.send(dict(
-            command=RECORD,
-            start_dttm=start_dttm,
-            path=get_recording_file(character_str, move_str, tag=0)
-        ))
-    else:
-        controller_parent_conn.send(dict(
-            command=PLAYBACK,
-            start_dttm=start_dttm,
-            path=get_macro_file(character_str, move_str)
-        ))
-        recorder_parent_conn.send(dict(
-            command=RECORD,
-            start_dttm=start_dttm,
-            path=get_recording_file(character_str, move_str, tag=1)
-        ))
-        is_done = controller_parent_conn.recv()
-        recorder_parent_conn.send(dict(
-            command=STOP
-        ))
+
+def relay_stop():
+    relay_q.put(dict(
+        command=STOP
+    ))
+# endregion
+
+
+# region RECORDER ACTIONS
+def recorder_record(output_macro_path: str, start_dttm: dt.datetime, end_dttm: Optional[dt.datetime] = None):
+    recorder_q.put(dict(
+        command=RECORD,
+        path=output_macro_path,
+        start_dttm=start_dttm,
+    ))
+
+
+def recorder_stop():
+    recorder_q.put(dict(
+        command=STOP
+    ))
+# endregion
