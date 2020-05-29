@@ -1,3 +1,7 @@
+import time
+
+import serial
+
 from switch import SwitchRelay
 import datetime as dt
 from multiprocessing import Queue, Process
@@ -44,28 +48,28 @@ def close():
 
 def start_relay_process(queue):
     relay_config = read_relay_config()
-    # relay = SwitchRelay(
-    #     bytesize=serial.EIGHTBITS, parity=serial.PARITY_NONE,
-    #     stopbits=serial.STOPBITS_ONE, timeout=None, **relay_config
-    # )
+    relay = SwitchRelay(
+        bytesize=serial.EIGHTBITS, parity=serial.PARITY_NONE,
+        stopbits=serial.STOPBITS_ONE, timeout=None, **relay_config
+    )
 
-    while True:
-        if not queue.empty():
-            cmd = queue.get_nowait()
-            print('>>>', cmd)
-            if cmd['command'] == QUIT:
-                break
-            elif cmd['command'] == RECORD:
-                start_dttm = cmd['start_dttm']
-                # relay.start_recording(cmd['path'], start_dttm)
-            elif cmd['command'] == PLAYBACK:
-                start_dttm = cmd['start_dttm']
-                # relay.playback_recording(cmd['path'], start_dttm)
-            elif cmd['command'] == STOP:
-                pass
-                # relay.reset()
+    with relay:
+        while True:
+            if not queue.empty():
+                cmd = queue.get_nowait()
+                print('>>>', cmd)
+                if cmd['command'] == QUIT:
+                    break
+                elif cmd['command'] == RECORD:
+                    start_dttm = cmd['start_dttm']
+                    relay.start_recording(cmd['path'], start_dttm)
+                elif cmd['command'] == PLAYBACK:
+                    start_dttm = cmd['start_dttm']
+                    relay.playback_recording(cmd['path'], start_dttm)
+                elif cmd['command'] == STOP:
+                    relay.reset()
 
-        # relay.heartbeat()
+            relay.heartbeat()
 
 
 def start_recorder_process(queue):
@@ -110,6 +114,7 @@ def recorder_record(output_macro_path: str, start_dttm: dt.datetime, end_dttm: O
         command=RECORD,
         path=output_macro_path,
         start_dttm=start_dttm,
+        end_dttm=end_dttm
     ))
 
 
@@ -117,4 +122,26 @@ def recorder_stop():
     recorder_q.put(dict(
         command=STOP
     ))
+# endregion
+
+
+# region simple consumer-producer example
+def start_simple_process(q: Queue):
+    while True:
+        if not q.empty():
+            cmd = q.get_nowait()
+            print('>> I eat this: ', cmd)
+        else:
+            print('heartbeat')
+        time.sleep(1)
+
+
+if __name__ == '__main__':
+    simple_q = Queue()
+    proc = Process(target=start_simple_process, args=(simple_q, ))
+    proc.start()
+
+    while True:
+        simple_q.put('cookie')
+        time.sleep(10)
 # endregion

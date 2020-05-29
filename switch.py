@@ -52,7 +52,20 @@ class SwitchRelay:
             self.recording.flush()
             self.recording.close()
 
+    def reset(self):
+        if self.recording:
+            self.recording.flush()
+            self.recording.close()
+
+        self.input_stack = []
+        self.recording = None
+        self.start_dttm = None
+        self.prev_msg_stamp = None
+
     def heartbeat(self):
+        if not self.input_stack:
+            return
+
         msg_stamp = next(self.input_stack)
         # This this input has aleady been entered, then don't spam the stack
         if self.prev_msg_stamp and msg_stamp.message == self.prev_msg_stamp.message:
@@ -63,25 +76,25 @@ class SwitchRelay:
         self.ser.write(msg_stamp.formatted_message())
 
         # record result if needed
-        if self.recording is not None:
+        if self.recording:
             self.recording.write(msg_stamp.serialize() + b'\n')
 
         self.prev_msg_stamp = msg_stamp
 
     def playback_recording(self, path: str, start_dttm: dt.datetime):
         self.start_dttm = start_dttm
-        wait_for_time(start_dttm)
 
         playback_iter = self.replay_states(path)
         self.input_stack = playback_iter
+        wait_for_time(start_dttm)
 
     def start_recording(self, path: str, start_dttm: dt.datetime):
         self.start_dttm = start_dttm
-        wait_for_time(start_dttm)
 
         live = self.controller_states()
         self.recording = open(path)
         self.input_stack = live
+        wait_for_time(start_dttm)
 
     def controller_states(self):
         cls = self.__class__
@@ -119,7 +132,6 @@ class SwitchRelay:
             for line in replay.readlines():
                 # remove new-line character at end of line, and feed it into deserializer
                 yield ControllerStateTime.deserialize(line[:-1])
-
 
     buttonmapping = [
         sdl2.SDL_CONTROLLER_BUTTON_X,  # Y
