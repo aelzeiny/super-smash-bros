@@ -17,6 +17,8 @@ JSON.stringify(big_dict);
 """
 
 import json
+import os
+
 import requests
 import shutil
 from multiprocessing import Pool
@@ -35,11 +37,25 @@ def download_file(url, local_filename):
     return local_filename
 
 
-with Pool(1) as pool:
-    pool.starmap(download_file, [
-        (
-            f'https://www.ssbwiki.com/{all_characters[k]}',
-            f'./frontend/static/characters/{k}.png'
-        )
-        for k in all_characters
-    ])
+star_map = [
+    (
+        f'https://www.ssbwiki.com/{all_characters[k]}',
+        f'./frontend/static/characters/{k}.png'
+    )
+    for k in all_characters
+]
+
+if not os.path.exists('./frontend/static/characters'):
+    os.mkdir('./frontend/static/characters')
+
+for url, dest in star_map:
+    download_file(url, dest)
+
+# with Pool(1) as pool:
+#     pool.starmap(download_file, [
+#         (
+#             f'https://www.ssbwiki.com/{all_characters[k]}',
+#             f'./frontend/static/characters/{k}.png'
+#         )
+#         for k in all_characters
+#     ])

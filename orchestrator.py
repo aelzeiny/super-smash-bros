@@ -7,7 +7,7 @@ import datetime as dt
 from multiprocessing import Queue, Process
 from typing import Optional, Tuple
 from smash_utils import read_relay_config
-
+from webcam import WebCamRecorder
 
 relay_q: Optional[Queue] = None
 recorder_q: Optional[Queue] = None
@@ -73,12 +73,17 @@ def start_relay_process(queue):
 
 
 def start_recorder_process(queue):
+    cam = WebCamRecorder()
     while True:
         if not queue.empty():
             cmd = queue.get_nowait()
             print('>>>', cmd)
             if cmd['command'] == QUIT:
                 break
+            elif cmd['command'] == RECORD:
+                cam.start_recording(cmd['path'], cmd['start_dttm'], cmd['end_dttm'])
+            elif cmd['command'] == STOP:
+                cam.reset()
 
 
 # region RELAY ACTIONS

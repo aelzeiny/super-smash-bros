@@ -3,7 +3,7 @@ import orchestrator
 import smash_utils
 
 from pathlib import Path
-from flask import Flask, render_template
+from flask import Flask, render_template, jsonify
 from smash_utils import MOVE_LIST
 import datetime as dt
 
@@ -61,7 +61,7 @@ def start_playback(char, move):
         end_dttm
     )
     smash_utils.wait_for_time(start_dttm)
-    return '', 204
+    return jsonify({'wait': (dt.datetime.now() - end_dttm).total_seconds()})
 
 
 @app.route('/stop', methods=['POST'])

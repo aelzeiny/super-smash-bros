@@ -9,8 +9,6 @@
             background-color: #666;
         }
         #recording {
-            color: red;
-            font-weight: bold;
             position: absolute;
             left: 20px;
             visibility: hidden;
@@ -28,8 +26,8 @@
 {% block content %}
     {{ super() }}
     <div class="container-fluid" style="text-align: center">
-        <label id="recording">???</label>
         <video autoplay="true" id="videoElement"></video>
+        <button class="btn btn-danger" id="recording">???</button>
 
         <h3>{{ character }}</h3>
         <div class="btn-group btn-group-toggle" data-toggle="buttons">
@@ -86,10 +84,21 @@
             $.ajax({
                 url: `/${selectedCharacter}/${selectedMove}/playback`,
                 method: 'POST'
-            }).then(() => {
+            }).then((data) => {
+                setTimeout(recordingLabel.click, data.wait);
                 recordingLabel.text(`PLAYBACK: ${selectedCharacter} ${selectedMove}`);
                 recordingLabel.addClass('visible');
                 $("html, body").animate({ scrollTop: 0 }, "fast");
+            });
+        });
+
+        recordingLabel.click(() => {
+            recordingLabel.removeClass('visible');
+            $.ajax({
+                url: '/stop',
+                method: 'POST'
+            }).then(() => {
+                $("html, body").animate({ scrollTop: '100%' }, "fast");
             });
         });
     </script>

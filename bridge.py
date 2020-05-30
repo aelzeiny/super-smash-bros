@@ -189,7 +189,7 @@ if __name__ == '__main__':
         sdl2.SDL_Init(sdl2.SDL_INIT_GAMECONTROLLER)
         enumerate_controllers()
         exit(0)
-
+    
     ser = serial.Serial(args.port, args.baud_rate, bytesize=serial.EIGHTBITS, parity=serial.PARITY_NONE, stopbits=serial.STOPBITS_ONE, timeout=None)
     print('Using {:s} at {:d} baud for comms.'.format(args.port, args.baud_rate))
 

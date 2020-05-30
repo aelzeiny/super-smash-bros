@@ -65,8 +65,11 @@ class SwitchRelay:
     def heartbeat(self):
         if not self.input_stack:
             return
-
-        msg_stamp = next(self.input_stack)
+        try:
+            msg_stamp = next(self.input_stack)
+        except StopIteration:
+            self.reset()
+            return
         # This this input has aleady been entered, then don't spam the stack
         if self.prev_msg_stamp and msg_stamp.message == self.prev_msg_stamp.message:
             return
@@ -86,21 +89,21 @@ class SwitchRelay:
 
         playback_iter = self.replay_states(path)
         self.input_stack = playback_iter
-        wait_for_time(start_dttm)
 
     def start_recording(self, path: str, start_dttm: dt.datetime):
         self.start_dttm = start_dttm
 
         live = self.controller_states()
-        self.recording = open(path)
+        self.recording = open(path, 'wb')
         self.input_stack = live
-        wait_for_time(start_dttm)
 
     def controller_states(self):
         cls = self.__class__
         controller = self.controller
         while True:
-            elaped_time = dt.datetime.now().timestamp() - self.start_dttm
+            for _ in sdl2.ext.get_events():
+                pass
+            elaped_time = dt.datetime.now().timestamp() - self.start_dttm.timestamp()
             buttons = sum((
                 sdl2.SDL_GameControllerGetButton(controller, b) << n for n, b in enumerate(cls.buttonmapping)
             ))
