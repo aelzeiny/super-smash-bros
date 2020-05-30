@@ -9,8 +9,8 @@ from smash_utils import wait_for_time
 
 
 class WebCamRecorder:
-    def __init__(self, capture_device: int = 0, fourcc: str = 'MJPG', width: int = 640, height: int = 480,
-                 fps: int = 60):
+    def __init__(self, capture_device: int = 0, fourcc: str = 'MJPG', width: int = 1600, height: int = 1200,
+                 fps: int = 59.9999):
         self.cap = VideoCaptureAsync(capture_device, width=width, height=height, fps=fps)
 
         self.fourcc = cv2.VideoWriter_fourcc(*fourcc)

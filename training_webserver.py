@@ -30,6 +30,8 @@ def character_select(char):
 
 @app.route('/<char>/<move>/record', methods=['POST'])
 def start_recording_and_macro(char, move):
+    if not orchestrator.is_alive():
+        raise BlockingIOError('Something broke')
     # remove all recorded files for this macro
     smash_utils.ensure_directory(char)
     for file in smash_utils.list_recording_files(char, move):
@@ -50,6 +52,8 @@ def start_recording_and_macro(char, move):
 
 @app.route('/<char>/<move>/playback', methods=['POST'])
 def start_playback(char, move):
+    if not orchestrator.is_alive():
+        raise BlockingIOError('Something broke')
     start_dttm = dt.datetime.now() + dt.timedelta(seconds=3)
     end_dttm = orchestrator.relay_playback(
         smash_utils.get_macro_file(char, move),
@@ -66,6 +70,8 @@ def start_playback(char, move):
 
 @app.route('/stop', methods=['POST'])
 def stop_recording_and_macro():
+    if not orchestrator.is_alive():
+        raise BlockingIOError('Something broke')
     orchestrator.relay_stop()
     orchestrator.recorder_stop()
     return '', 204

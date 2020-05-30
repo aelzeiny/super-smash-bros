@@ -89,6 +89,9 @@ def start_recorder_process(queue):
             cam.heartbeat()
 
 
+def is_alive():
+    return relay_process.is_alive() and recorder_process.is_alive()
+
 # region RELAY ACTIONS
 def relay_record(output_macro_path: str, start_dttm: dt.datetime):
     relay_q.put(dict(
