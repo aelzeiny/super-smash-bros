@@ -85,7 +85,8 @@
                 url: `/${selectedCharacter}/${selectedMove}/playback`,
                 method: 'POST'
             }).then((data) => {
-                setTimeout(recordingLabel.click, data.wait);
+                console.log('waiting for', data.wait);
+                setTimeout(() => recordingLabel.click(), data.wait  * 1000);
                 recordingLabel.text(`PLAYBACK: ${selectedCharacter} ${selectedMove}`);
                 recordingLabel.addClass('visible');
                 $("html, body").animate({ scrollTop: 0 }, "fast");
@@ -98,6 +99,7 @@
                 url: '/stop',
                 method: 'POST'
             }).then(() => {
+                console.log('recording stopped');
                 $("html, body").animate({ scrollTop: '100%' }, "fast");
             });
         });

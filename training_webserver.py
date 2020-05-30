@@ -56,12 +56,12 @@ def start_playback(char, move):
         start_dttm
     )
     orchestrator.recorder_record(
-        smash_utils.get_recording_file(char, move, str(dt.datetime.now().timestamp())),
+        smash_utils.get_recording_file(char, move, str(start_dttm.timestamp())),
         start_dttm,
         end_dttm
     )
     smash_utils.wait_for_time(start_dttm)
-    return jsonify({'wait': (dt.datetime.now() - end_dttm).total_seconds()})
+    return jsonify({'wait': (end_dttm - start_dttm).total_seconds()})
 
 
 @app.route('/stop', methods=['POST'])

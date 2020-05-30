@@ -174,4 +174,5 @@ class SwitchRelay:
 
     @classmethod
     def get_macro_duration(cls, input_macro_path):
-        return sum([state.delta for state in cls.replay_states(input_macro_path)])
+        all_inputs = [state.delta for state in cls.replay_states(input_macro_path)]
+        return max(all_inputs) - min(all_inputs)

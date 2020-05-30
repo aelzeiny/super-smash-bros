@@ -43,14 +43,14 @@ def get_macro_file(character: str, move: str) -> str:
 
 
 def get_recording_file(character: str, move: str, suffix: str) -> str:
-    return f'./macros/{character}/{move}_{suffix}.mp4'
+    return f'./macros/{character}/{move}_{suffix}.avi'
 
 
 def list_recording_files(character: str, move: str):
     return [
         f'./macros/{character}/{f}' for f in
         os.listdir(f'./macros/{character}')
-        if f.startswith(f'{move}_') and f.endswith('.mp4')
+        if f.startswith(f'{move}_') and f.endswith('.avi')
     ]
 
 

@@ -15,10 +15,10 @@ relay_process: Optional[Process] = None
 recorder_process: Optional[Process] = None
 
 
-QUIT = 0
-RECORD = 1
-PLAYBACK = 2
-STOP = 3
+QUIT = 'QUIT'
+RECORD = 'REC'
+PLAYBACK = 'PLAY'
+STOP = 'STOP'
 
 
 def start_processes():
@@ -74,16 +74,18 @@ def start_relay_process(queue):
 
 def start_recorder_process(queue):
     cam = WebCamRecorder()
-    while True:
-        if not queue.empty():
-            cmd = queue.get_nowait()
-            print('>>>', cmd)
-            if cmd['command'] == QUIT:
-                break
-            elif cmd['command'] == RECORD:
-                cam.start_recording(cmd['path'], cmd['start_dttm'], cmd['end_dttm'])
-            elif cmd['command'] == STOP:
-                cam.reset()
+    with cam:
+        while True:
+            if not queue.empty():
+                cmd = queue.get_nowait()
+                print('>>>', cmd)
+                if cmd['command'] == QUIT:
+                    break
+                elif cmd['command'] == RECORD:
+                    cam.start_recording(cmd['path'], cmd['start_dttm'], cmd['end_dttm'])
+                elif cmd['command'] == STOP:
+                    cam.reset()
+            cam.heartbeat()
 
 
 # region RELAY ACTIONS
@@ -142,11 +144,13 @@ def start_simple_process(q: Queue):
 
 
 if __name__ == '__main__':
-    simple_q = Queue()
-    proc = Process(target=start_simple_process, args=(simple_q, ))
-    proc.start()
-
-    while True:
-        simple_q.put('cookie')
-        time.sleep(10)
+    # simple_q = Queue()
+    # proc = Process(target=start_simple_process, args=(simple_q, ))
+    # proc.start()
+    #
+    # while True:
+    #     simple_q.put('cookie')
+    #     time.sleep(10)
+    start_processes()
+    recorder_record('./yeet.avi', dt.datetime.now())
 # endregion
