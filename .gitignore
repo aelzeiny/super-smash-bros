@@ -1,8 +1,12 @@
+# OS folders
 .idea
 __pycache__
-*.avi
-smash_pics
 env
 .ipynb_checkpoints
 
+# output of scrape.py
 frontend/static/characters
+
+# video stuff
+*.avi
+*.mp4
