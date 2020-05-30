@@ -5,7 +5,7 @@ env
 .ipynb_checkpoints
 
 # output of scrape.py
-frontend/static/characters
+frontend/static/characters/*
 
 # video stuff
 *.avi

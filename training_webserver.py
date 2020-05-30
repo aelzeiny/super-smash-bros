@@ -74,6 +74,6 @@ def stop_recording_and_macro():
 if __name__ == "__main__":
     try:
         orchestrator.start_processes()
-        app.run()
+        app.run(host='0.0.0.0')
     finally:
         orchestrator.close()

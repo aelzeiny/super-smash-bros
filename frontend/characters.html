@@ -1,34 +1,47 @@
 {% extends "base.html" %}
 {% block head %}
     {{ super() }}
+    <script src="{{ url_for('static', filename='masonry.pkgd.min.js') }}"></script>
     <title>Characters</title>
+    <style>
+        .grid-item {
+            width: 160px;
+            text-align: center;
+            float: left;
+            background: #ffd1d1;
+            border: 2px solid #333;
+            border-color: hsla(0, 100%, 75%, 0.5);
+            border-radius: 5px;
+        }
+        a {
+            color: #800000;
+        }
+        a:hover {
+            color: #800000;
+        }
+    </style>
 {% endblock %}
 
 {% block content %}
     {{ super() }}
     <div class="container">
-        <table id="character-table" class="table table-striped" style="text-align: center">
+        <div class="grid">
          {% for char in characters %}
-
-            {% if loop.index0 % 5 == 0 %}
-                {% if loop.index0 != 0 %}
-                    <tr>
-                {% else %}
-                    </tr><tr>
-                {% endif %}
-            {% endif %}
-
-             <td>
+             <div class="grid-item">
                  <a href="character/{{ char }}">
-                     <img src="{{ url_for('static', filename='characters/{}.png'.format(char)) }}"/>
-                     <br/>
+                     <img src="{{ url_for('static', filename='characters/{}.png'.format(char)) }}"/> <br/>
                      <span>{{ char }}</span>
                  </a>
-             </td>
+             </div>
          {% endfor %}
-        </table>
+        </div>
     </div>
     <script>
+        $('.grid').masonry({
+          itemSelector: '.grid-item',
+          columnWidth: 160
+        });
+
         $('button.character-button').click((e) => {
             let el = e.target;
             if (el.tagName !== 'BUTTON')

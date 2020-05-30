@@ -30,7 +30,7 @@
         <button class="btn btn-danger" id="recording">???</button>
 
         <h3>{{ character }}</h3>
-        <div class="btn-group btn-group-toggle" data-toggle="buttons">
+        <div class="btn-group-toggle" data-toggle="buttons">
 
             {% for move in moves %}
               <label class="btn btn-outline-primary record-button {{ 'recorded' if moves[move] else '' }}"
