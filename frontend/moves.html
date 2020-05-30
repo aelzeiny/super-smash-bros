@@ -26,7 +26,7 @@
 {% block content %}
     {{ super() }}
     <div class="container-fluid" style="text-align: center">
-        <video autoplay="true" id="videoElement"></video>
+<!--        <video autoplay="true" id="videoElement"></video>-->
         <button class="btn btn-danger" id="recording">???</button>
 
         <h3>{{ character }}</h3>
@@ -46,18 +46,22 @@
     </div>
 
     <script>
-        let video = document.querySelector("#videoElement");
+        function enableWebCam() {
+            let video = document.querySelector("#videoElement");
 
-        if (navigator.mediaDevices.getUserMedia) {
-          navigator.mediaDevices.getUserMedia({ video: true })
-            .then(function (stream) {
-              video.srcObject = stream;
-            })
-            .catch(function (err) {
-              console.log("Something went wrong!");
-              console.error(err);
-            });
+            if (navigator.mediaDevices.getUserMedia) {
+              navigator.mediaDevices.getUserMedia({ video: true })
+                .then(function (stream) {
+                  video.srcObject = stream;
+                })
+                .catch(function (err) {
+                  console.log("Something went wrong!");
+                  console.error(err);
+                });
+            }
         }
+
+        // enableWebCam()
 
         const recordingLabel = $('#recording');
         let selectedCharacter = null;

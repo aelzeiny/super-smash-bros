@@ -21,13 +21,14 @@ PLAYBACK = 'PLAY'
 STOP = 'STOP'
 
 
+def _start_process(func) -> Tuple[Process, Queue]:
+    queue = Queue()
+    process = Process(target=func, args=(queue,))
+    return process, queue
+
+
 def start_processes():
     global relay_process, relay_q, recorder_process, recorder_q
-
-    def _start_process(func) -> Tuple[Process, Queue]:
-        queue = Queue()
-        process = Process(target=func, args=(queue,))
-        return process, queue
 
     relay_process, relay_q = _start_process(start_relay_process)
     recorder_process, recorder_q = _start_process(start_recorder_process)
@@ -143,14 +144,22 @@ def start_simple_process(q: Queue):
         time.sleep(1)
 
 
-if __name__ == '__main__':
-    # simple_q = Queue()
-    # proc = Process(target=start_simple_process, args=(simple_q, ))
-    # proc.start()
-    #
-    # while True:
-    #     simple_q.put('cookie')
-    #     time.sleep(10)
-    start_processes()
-    recorder_record('./yeet.avi', dt.datetime.now())
+def init_simple_process():
+    simple_q = Queue()
+    proc = Process(target=start_simple_process, args=(simple_q, ))
+    proc.start()
+
+    while True:
+        simple_q.put('cookie')
+        time.sleep(10)
 # endregion
+
+
+if __name__ == '__main__':
+    recorder_process, recorder_q = _start_process(start_recorder_process)
+    recorder_process.start()
+    recorder_record('./yeet.avi', dt.datetime.now())
+    while recorder_process.is_alive():
+        pass
+    recorder_process.join()
+
